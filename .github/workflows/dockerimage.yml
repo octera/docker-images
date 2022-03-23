@@ -1,7 +1,7 @@
 name: Docker Build/Publish Image
 on:  
   push:    
-    branches: [ master, init ]  
+    branches: [ master, main ]  
 jobs:   
   build:    
     runs-on: ubuntu-18.04    
