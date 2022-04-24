@@ -2,12 +2,24 @@ name: Docker Build/Publish Image
 on:  
   push:    
     branches: [ master, main ]  
-jobs:   
-  build:    
-    runs-on: ubuntu-18.04    
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - id: matrix
+        run: |
+          echo '::set-output name=value::[\"cups-gutenprint\", \"kivy-with-x\"]'      
+  build:
+    needs: [ setup ]    
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        value: ${{fromJson(needs.setup.outputs.matrix)}}      
     env:      
       DOCKER_REGISTRY: registry.hub.docker.com
-      DOCKER_IMAGE: octera/gutenprint-cups
+      DOCKER_IMAGE: octera/${{ matrix.value }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}  
       DOCKER_TARGET_PLATFORM: linux/arm64
@@ -36,5 +48,5 @@ jobs:
         docker buildx build \
         --platform ${{ steps.prepare.outputs.docker_platform }} \
         --tag ${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }} \
-        --file ./pi/cups-gutenprint/Dockerfile \
-        --output type=image,push=true ./pi/cups-gutenprint
+        --file ./pi/${{ matrix.value }}/Dockerfile \
+        --output type=image,push=true ./pi/${{ matrix.value }}
