@@ -1,15 +1,25 @@
 name: Docker Build/Publish Image
 on:  
   push:    
-    branches: [ master, main ]  
-jobs:   
+    branches-ignore: [ master, main ]  
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - id: matrix
+        run: |
+          echo '::set-output name=value::["cups-gutenprint", "kivy-with-x"]'   
   build:    
-    runs-on: ubuntu-18.04    
+    needs: [ setup ]
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        value: ${{fromJson(needs.setup.outputs.matrix)}}    
     env:      
       DOCKER_REGISTRY: registry.hub.docker.com
-      DOCKER_IMAGE: octera/gutenprint-cups
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}  
+      DOCKER_IMAGE: octera/${{ matrix.value }}
       DOCKER_TARGET_PLATFORM: linux/arm64
     steps:    
     - name: Checkout the code       
@@ -25,16 +35,12 @@ jobs:
       run: |        
         echo ::set-output name=docker_platform::${DOCKER_TARGET_PLATFORM}        
         echo ::set-output name=docker_image::${DOCKER_REGISTRY}/${DOCKER_IMAGE}        
-        echo ::set-output name=version::${GITHUB_RUN_NUMBER}    
-    - name: Docker Login      
-      if: success()      
-      run: |        
-        echo "${DOCKER_PASSWORD}" | docker login ${DOCKER_REGISTRY} --username "${DOCKER_USERNAME}" --password-stdin       
-    - name: Run Buildx (push image)      
+        echo ::set-output name=version::${GITHUB_RUN_NUMBER}         
+    - name: Run Buildx (without push image)      
       if: success()      
       run: |        
         docker buildx build \
         --platform ${{ steps.prepare.outputs.docker_platform }} \
         --tag ${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }} \
-        --file ./pi/cups-gutenprint/Dockerfile \
-        --output type=image,push=true ./pi/cups-gutenprint
+        --file ./pi/${{ matrix.value }}/Dockerfile \
+        --output type=image ./pi/${{ matrix.value }}
