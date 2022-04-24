@@ -10,7 +10,7 @@ jobs:
     steps:
       - id: matrix
         run: |
-          echo '::set-output name=value::[\"cups-gutenprint\", \"kivy-with-x\"]'      
+          echo '::set-output name=value::["cups-gutenprint", "kivy-with-x"]'      
   build:
     needs: [ setup ]    
     runs-on: ubuntu-18.04
