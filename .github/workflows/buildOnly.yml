@@ -8,15 +8,18 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
-      - id: matrix
+      - id: matrixPI
         run: |
-          echo '::set-output name=value::["cups-gutenprint", "kivy-with-x"]'   
-  build:    
+          echo '::set-output name=value::["cups-gutenprint", "kivy-with-x"]'    
+      - id: matrixGeneric
+        run: |
+          echo '::set-output name=value::["kaniko-awscli"]'   
+  buildPI:    
     needs: [ setup ]
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        value: ${{fromJson(needs.setup.outputs.matrix)}}    
+        value: ${{fromJson(needs.setup.outputs.matrixPI)}}    
     env:      
       DOCKER_REGISTRY: registry.hub.docker.com
       DOCKER_IMAGE: octera/${{ matrix.value }}
@@ -44,3 +47,37 @@ jobs:
         --tag ${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }} \
         --file ./pi/${{ matrix.value }}/Dockerfile \
         --output type=image ./pi/${{ matrix.value }}
+
+  buildGeneric:    
+    needs: [ setup ]
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        value: ${{fromJson(needs.setup.outputs.matrixGeneric)}}    
+    env:      
+      DOCKER_REGISTRY: registry.hub.docker.com
+      DOCKER_IMAGE: octera/${{ matrix.value }}
+      DOCKER_TARGET_PLATFORM: linux/arm64
+    steps:    
+    - name: Checkout the code       
+      uses: actions/checkout@v1
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+    # https://github.com/docker/setup-buildx-action
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Prepare      
+      if: success()      
+      id: prepare      
+      run: |        
+        echo ::set-output name=docker_platform::${DOCKER_TARGET_PLATFORM}        
+        echo ::set-output name=docker_image::${DOCKER_REGISTRY}/${DOCKER_IMAGE}        
+        echo ::set-output name=version::${GITHUB_RUN_NUMBER}         
+    - name: Run Buildx (without push image)      
+      if: success()      
+      run: |        
+        docker buildx build \
+        --platform ${{ steps.prepare.outputs.docker_platform }} \
+        --tag ${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }} \
+        --file ./generic/${{ matrix.value }}/Dockerfile \
+        --output type=image ./generic/${{ matrix.value }}
